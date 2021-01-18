@@ -1,10 +1,8 @@
 package com.similarweb.demo.controllers;
 
-import com.similarweb.demo.utils.MetricsManager;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.composite.CompositeMeterRegistry;
-import org.HdrHistogram.Histogram;
+import io.prometheus.client.Histogram;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,8 +16,10 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.util.retry.Retry;
 
+import java.net.URI;
 import java.time.Duration;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @RestController
@@ -43,6 +43,7 @@ public class MyController {
     private final Counter postCallsRetriesCounterRegister;
     private final Counter postCallsRetriesCounterChangePass;
     private final Counter postCallsSuccessRate;
+    private final Histogram postCallsFirstReplyLatency;
 
     MyController(MeterRegistry registry) {
         //Initialize metrics for the controller
@@ -60,6 +61,11 @@ public class MyController {
         postCallsSuccessRate = Counter.builder("post.calls.success.rate")
                 .description("The success rate of sending post calls")
                 .register(registry);
+        postCallsFirstReplyLatency = Histogram.build("post_calls_first_reply_milliseconds",
+                "The time in milliseconds took the first reply to get back for post calls " +
+                        "(the first server which returned an answer)")
+                .buckets(1,10,100,500)
+                .register();
     }
 
     private List<String> getServersList() {
@@ -83,6 +89,7 @@ public class MyController {
         List<String> servers = getServersList();
 
         WebClient webClient = WebClient.create();
+        Histogram.Timer timer = postCallsFirstReplyLatency.startTimer();
         for (String server : servers) {
             logger.info(String.format("Sending POST request for %s for server %s", path, server));
             webClient
@@ -90,7 +97,7 @@ public class MyController {
                     .uri(String.format("https://%s/%s", server, path))
                     .exchange()
                     .timeout(Duration.ofMillis(500))
-                    .retryWhen(Retry.backoff(100, Duration.ofMillis(500))
+                    .retryWhen(Retry.backoff(10, Duration.ofMillis(500))
                             .doAfterRetry(retrySignal -> {
                                 if (path.startsWith("reg")) {
                                     postCallsRetriesCounterRegister.increment();
@@ -100,7 +107,7 @@ public class MyController {
                                 logger.info(String.format("Got a retry for %s request", path));
                             }))
                     .doOnSuccess(clientResponse -> {
-                        /*TODO: Add metric*/
+                        postCallsSuccessRate.increment();
                         logger.info("Event is received by 1 server at least");
                         isOneSuccess.incrementAndGet();
                         ResponseEntity.ok().build();
@@ -115,10 +122,9 @@ public class MyController {
                 logger.info(String.format("Waiting for response from server in %s request, for longer than %d ms, continuing without response", path, timeToWaitForServerMs));
                 break;
             }
-            /*TODO: Add metric*/
         }
-
-        return ResponseEntity.ok().build();
+        timer.observeDuration();
+        return ResponseEntity.created(URI.create("")).build();
     }
 
 

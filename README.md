@@ -27,7 +27,12 @@ There are two given ways to install the service and run it:
     `./mvnw package && java -jar target/demo-0.0.1-SNAPSHOT.jar` --> The command will 
     package all the relevant for the JAR and then run it. 
     
-NOTE: For both cases, the version is being handled by pom.xml file (root directory)   
+For both cases the configuration file which will be used is under `src/main/resources/application.properties`.
+In order to test the application or deploy it with various parameters, change the mentioned file, and the 
+docker image will use it. 
+NOTE: For both cases, the version is being handled by pom.xml file (root directory)
+Another NOTE: All code was written and compiled with IntelliJ IDEA, all the relevant files for IDEA are 
+committed to the repository in order to allow quick review, testing and changing the exist code.    
 
 
 ### Service configuration
@@ -36,7 +41,7 @@ The main parameter and most critical for the service is *`servers`*.
 Its a comma separated string which should contain the exact hostnames we want to route the calls
 
 Another important param is `time.to.wait.for.a.single.server.response.milliseconds`. 
-I defined it cause a case of a server that is currently down for any reason and not answering 
+I defined it because of a case of a server that is currently down for any reason and not answering 
 is bad practice and can cost us in loop forever, waste of resources and basically not providing 
 a service for the rest of the calls. I took a business decision and limit it to X ms. It's configurable, 
 so we can change per environment if we would like.
