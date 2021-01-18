@@ -30,7 +30,9 @@ There are two given ways to install the service and run it:
 For both cases the configuration file which will be used is under `src/main/resources/application.properties`.
 In order to test the application or deploy it with various parameters, change the mentioned file, and the 
 docker image will use it. 
+
 NOTE: For both cases, the version is being handled by pom.xml file (root directory)
+
 Another NOTE: All code was written and compiled with IntelliJ IDEA, all the relevant files for IDEA are 
 committed to the repository in order to allow quick review, testing and changing the exist code.    
 
